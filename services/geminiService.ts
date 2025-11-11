@@ -1,33 +1,29 @@
-import { GoogleGenAI } from "@google/genai";
-
-// Ensure the API key is available from environment variables
-if (!process.env.API_KEY) {
-  throw new Error("API_KEY environment variable not set");
-}
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 async function callAI(prompt: string): Promise<string> {
-    try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
+  try {
+    const response = await fetch('/.netlify/functions/gemini-proxy', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ prompt }),
     });
-    
-    let text = response.text;
-    if (!text) {
-      throw new Error("The API returned an empty response.");
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error(`Netlify function failed with status ${response.status}:`, errorBody);
+      const errorJson = JSON.parse(errorBody);
+      throw new Error(errorJson.error || `Failed to generate lyrics. The server returned an error.`);
+    }
+
+    const data = await response.json();
+    if (typeof data.text !== 'string') {
+      throw new Error("The API returned an invalid response.");
     }
     
-    // Remove markdown code block fences if they exist
-    if (text.startsWith('```') && text.endsWith('```')) {
-      text = text.substring(3, text.length - 3).trim();
-    }
-    
-    return text.trim();
+    return data.text;
   } catch (error) {
-    console.error("Error calling AI API:", error);
-    throw new Error("Failed to generate lyrics. The model may be unavailable or the request was invalid.");
+    console.error("Error calling AI API via proxy:", error);
+    throw new Error(error instanceof Error ? error.message : "An unknown error occurred while generating lyrics.");
   }
 }
 
