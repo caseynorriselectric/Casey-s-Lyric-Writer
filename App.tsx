@@ -258,7 +258,7 @@ const App: React.FC = () => {
 
       </div>
        <footer className="text-center mt-12 text-slate-500 text-sm">
-        <p>Powered by Gemini. Lyrics are AI-generated and may be imperfect.</p>
+        <p>Powered by Google Gemini. Lyrics are AI-generated and may be imperfect.</p>
       </footer>
     </div>
   );
