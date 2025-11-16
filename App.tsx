@@ -1,11 +1,12 @@
 import React, { useState, useCallback } from 'react';
-import { generateLyrics, generateHookRemix, generateMusicStyle, enhanceLyrics } from './services/geminiService';
+import { generateLyrics, generateHookRemix, generateMusicStyle, enhanceLyrics, extendLyrics } from './services/geminiService';
 import TextInput from './components/TextInput';
 import Button from './components/Button';
 import LyricsDisplay from './components/LyricsDisplay';
 import ToggleSwitch from './components/ToggleSwitch';
 import { MusicNoteIcon, SparklesIcon } from './components/Icons';
 import SongHistory from './components/SongHistory';
+import ExtendedLyricsDisplay from './components/ExtendedLyricsDisplay';
 
 interface SongHistoryItem {
   id: number;
@@ -19,13 +20,16 @@ const App: React.FC = () => {
   const [topic, setTopic] = useState<string>('');
   const [structureSource, setStructureSource] = useState<string>('');
   const [inspirationLyrics, setInspirationLyrics] = useState<string>('');
+  const [extensionPoint, setExtensionPoint] = useState<string>('');
   const [lyrics, setLyrics] = useState<string>('');
+  const [extendedLyrics, setExtendedLyrics] = useState<string>('');
   const [musicStyle, setMusicStyle] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isRemixing, setIsRemixing] = useState<boolean>(false);
   const [isHookRemixing, setIsHookRemixing] = useState<boolean>(false);
   const [isGeneratingStyle, setIsGeneratingStyle] = useState<boolean>(false);
   const [isEnhancing, setIsEnhancing] = useState<boolean>(false);
+  const [isExtending, setIsExtending] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [includeInstructions, setIncludeInstructions] = useState<boolean>(true);
   const [history, setHistory] = useState<SongHistoryItem[]>([]);
@@ -51,6 +55,7 @@ const App: React.FC = () => {
     setIsLoading(true);
     setError(null);
     setLyrics('');
+    setExtendedLyrics('');
     setMusicStyle('');
 
     try {
@@ -72,6 +77,7 @@ const App: React.FC = () => {
     }
     setIsRemixing(true);
     setError(null);
+    setExtendedLyrics('');
     setMusicStyle('');
 
     try {
@@ -94,6 +100,7 @@ const App: React.FC = () => {
     }
     setIsHookRemixing(true);
     setError(null);
+    setExtendedLyrics('');
     setMusicStyle('');
     
     try {
@@ -115,6 +122,7 @@ const App: React.FC = () => {
     }
     setIsEnhancing(true);
     setError(null);
+    setExtendedLyrics('');
     
     try {
       const result = await enhanceLyrics(lyrics);
@@ -126,14 +134,42 @@ const App: React.FC = () => {
       setIsEnhancing(false);
     }
   }, [lyrics, artist, topic]);
+  
+  const handleExtendClick = useCallback(async () => {
+    if (!lyrics) {
+      setError('Cannot extend without existing lyrics.');
+      return;
+    }
+    setIsExtending(true);
+    setError(null);
+    setExtendedLyrics('');
+
+    try {
+      const result = await extendLyrics(lyrics, extensionPoint);
+      setExtendedLyrics(result);
+    } catch (err) {
+       setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+    } finally {
+      setIsExtending(false);
+    }
+  }, [lyrics, extensionPoint]);
+  
+  const handleAppendExtendedLyrics = useCallback(() => {
+    if (!extendedLyrics) return;
+    const appendedLyrics = lyrics + '\n\n' + extendedLyrics;
+    setLyrics(appendedLyrics);
+    setExtendedLyrics('');
+    setHistory(prev => [{ id: Date.now(), artist: `${artist} (Extended)`, topic, lyrics: appendedLyrics }, ...prev]);
+  }, [lyrics, extendedLyrics, artist, topic]);
 
   const handleLoadFromHistory = (id: number) => {
     const item = history.find(h => h.id === id);
     if (item) {
-      setArtist(item.artist.replace(/ \((Reimagined|Hook Remix|Enhanced)\)$/, ''));
+      setArtist(item.artist.replace(/ \((Reimagined|Hook Remix|Enhanced|Extended)\)$/, ''));
       setTopic(item.topic);
       setLyrics(item.lyrics);
       setMusicStyle('');
+      setExtendedLyrics('');
     }
   };
 
@@ -142,7 +178,7 @@ const App: React.FC = () => {
   };
 
   const canGenerate = artist.trim() !== '' && topic.trim() !== '';
-  const isBusy = isLoading || isRemixing || isHookRemixing || isEnhancing;
+  const isBusy = isLoading || isRemixing || isHookRemixing || isEnhancing || isExtending;
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200 flex flex-col items-center justify-center p-4 font-sans">
@@ -195,6 +231,15 @@ const App: React.FC = () => {
               isTextArea={true}
               disabled={isBusy}
             />
+            <TextInput
+              id="extensionPoint"
+              label="Where did you leave off? (For 'Extend Song' feature)"
+              value={extensionPoint}
+              onChange={(e) => setExtensionPoint(e.target.value)}
+              placeholder="e.g., after the second chorus, the line about the sunset"
+              isTextArea={true}
+              disabled={isBusy || !lyrics}
+            />
           </div>
            <div className="mt-6 border-t border-slate-700 pt-6">
             <ToggleSwitch
@@ -240,11 +285,31 @@ const App: React.FC = () => {
               isHookRemixing={isHookRemixing}
               onEnhance={handleEnhanceClick}
               isEnhancing={isEnhancing}
+              onExtend={handleExtendClick}
+              isExtending={isExtending}
               isGeneratingStyle={isGeneratingStyle}
               musicStyle={musicStyle}
             />
           )}
         </div>
+        
+        {(isExtending || extendedLyrics) && (
+          <div className="mt-4">
+            {isExtending && (
+              <div className="text-center p-4">
+                <p className="text-lg text-slate-400 animate-pulse">
+                  Writing the next chapter of your song...
+                </p>
+              </div>
+            )}
+            {extendedLyrics && !isExtending && (
+              <ExtendedLyricsDisplay 
+                lyrics={extendedLyrics}
+                onAppend={handleAppendExtendedLyrics}
+              />
+            )}
+          </div>
+        )}
         
         {history.length > 0 && (
           <div className="mt-8">

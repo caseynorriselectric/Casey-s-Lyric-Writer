@@ -251,3 +251,29 @@ export async function generateMusicStyle(lyrics: string, artist: string): Promis
     .replace('{lyrics}', lyrics);
   return callGemini(prompt);
 }
+
+const extendLyricsPromptTemplate = `
+You are a master lyricist tasked with extending an existing song.
+Your goal is to seamlessly continue the song, effectively doubling its length, while maintaining the original artist's style, tone, and narrative.
+The user has indicated they left off around this point: "{extensionPoint}". Use this as your primary cue for where to continue the story or theme.
+
+**CRITICAL INSTRUCTIONS:**
+1.  **ONLY NEW LYRICS:** Your entire response must ONLY be the new lyrics you generate to extend the song. Do NOT repeat any part of the original song provided below.
+2.  **MATCH STYLE:** Meticulously analyze the style of the original lyrics (rhyme scheme, rhythm, vocabulary, theme) and replicate it in your extension.
+3.  **SEAMLESS TRANSITION:** The new lyrics should feel like a natural continuation of the original song.
+4.  **CLEAN OUTPUT:** Do not include labels like [Verse 3], production notes in [brackets], or any other explanatory text unless the original lyrics followed that format. If the original was plain text, your output must be plain text. If it had production cues, you can add them. Match the input format.
+
+**Original Song Lyrics:**
+---
+{originalLyrics}
+---
+
+Generate the extension now.
+`;
+
+export async function extendLyrics(originalLyrics: string, extensionPoint: string): Promise<string> {
+    const prompt = extendLyricsPromptTemplate
+        .replace('{originalLyrics}', originalLyrics)
+        .replace('{extensionPoint}', extensionPoint || 'the end of the song'); // Provide a fallback
+    return callGemini(prompt);
+}
