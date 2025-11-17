@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 
 // Ensure the API key is available from environment variables
 if (!process.env.API_KEY) {
@@ -276,4 +276,60 @@ export async function extendLyrics(originalLyrics: string, extensionPoint: strin
         .replace('{originalLyrics}', originalLyrics)
         .replace('{extensionPoint}', extensionPoint || 'the end of the song'); // Provide a fallback
     return callGemini(prompt);
+}
+
+export async function analyzeMusicStyle(artistOrSong: string): Promise<{
+  style: string;
+  productionStyle: string;
+  bassElement: string;
+  studioProduction: string;
+}> {
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `You are an expert musicologist and producer. Analyze the musical style of the following artist/song: "${artistOrSong}".`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            style: {
+              type: Type.STRING,
+              description: "The primary genre or style of the music (e.g., Psychedelic Rock, Trap, Indie Folk)."
+            },
+            productionStyle: {
+              type: Type.STRING,
+              description: "The overall production approach (e.g., Lo-fi and raw, Polished and layered, Minimalist electronic)."
+            },
+            bassElement: {
+              type: Type.STRING,
+              description: "The characteristic of the bass (e.g., Driving 808s, Melodic fretless bass, Sub-bass drone)."
+            },
+            studioProduction: {
+              type: Type.STRING,
+              description: "A key studio technique or effect used (e.g., Heavy reverb and delay, Gated drums, Autotuned vocals)."
+            },
+          },
+          required: ["style", "productionStyle", "bassElement", "studioProduction"],
+        },
+      },
+    });
+
+    const jsonString = response.text.trim();
+    if (!jsonString) {
+      throw new Error("The API returned an empty JSON response.");
+    }
+
+    const parsed = JSON.parse(jsonString);
+    // Basic validation
+    if (typeof parsed.style !== 'string' || typeof parsed.productionStyle !== 'string' || typeof parsed.bassElement !== 'string' || typeof parsed.studioProduction !== 'string') {
+        throw new Error("The API returned an invalid JSON structure.");
+    }
+    
+    return parsed;
+
+  } catch (error) {
+    console.error("Error analyzing music style:", error);
+    throw new Error("Failed to analyze music style. The model may be unavailable or the request was invalid.");
+  }
 }

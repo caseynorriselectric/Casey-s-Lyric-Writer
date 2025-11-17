@@ -7,6 +7,7 @@ import ToggleSwitch from './components/ToggleSwitch';
 import { MusicNoteIcon, SparklesIcon } from './components/Icons';
 import SongHistory from './components/SongHistory';
 import ExtendedLyricsDisplay from './components/ExtendedLyricsDisplay';
+import MusicStyleAnalyzer from './components/MusicStyleAnalyzer';
 
 interface SongHistoryItem {
   id: number;
@@ -311,6 +312,8 @@ const App: React.FC = () => {
           </div>
         )}
         
+        <MusicStyleAnalyzer />
+
         {history.length > 0 && (
           <div className="mt-8">
             <SongHistory 
